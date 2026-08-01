@@ -122,6 +122,30 @@ videos never overwrite each other's cache.
 Both PNGs are white-on-black at the grid's own resolution, so they line up
 pixel for pixel and can be diffed directly.
 
+### Log lines you can ignore
+
+Stage 2 is inherited whole, including a vectorising tail that this project does
+not use. It still runs and still reports on itself, so a perfectly good run
+prints things like:
+
+```
+[clean] kept 0 line-like + 0 joined; dropped 0 tiny + 0 blobs
+[clean] no Hough lines; submitting structural map
+[final] WARNING: blank map.
+```
+
+That blank map is the single-line floor plan, which we deliberately do not
+produce. It has no bearing on `wall_raw.npy` or on either output PNG. The lines
+that actually tell you the run went well are:
+
+```
+[map] frames accumulated: 1472, ..., raw wall cells: 15368
+[rose] ridges [0, 90] deg | raw 15368 -> structure ... -> binary 7229 px
+```
+
+Ridge angles that match your building, and a raw-cell count that does not
+collapse to near zero, are the two things worth checking.
+
 ---
 
 ## How stage 3 works
