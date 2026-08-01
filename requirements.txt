@@ -1,0 +1,24 @@
+# 2d_recon_from_3d — wall reconstruction from a flyover video
+# Python 3.10+
+#
+#   python -m venv .venv
+#   .venv/Scripts/activate      # Windows
+#   pip install -r requirements.txt
+
+# Grids, spectra and the FFT that stage 3 is built on.
+numpy>=1.26,<3
+
+# Video decoding, image processing and ArUco detection (used to fix scale and
+# the reference frame from the origin-marker pattern). The contrib build is
+# pinned because it guarantees cv2.aruco is present; install ONLY this one, as
+# having opencv-python alongside it can shadow the module.
+opencv-contrib-python>=4.8
+
+# IMU telemetry loading.
+pandas>=2.0
+
+# Trajectory figure written during stage 1.
+matplotlib>=3.7
+
+# Wall/floor segmentation (models/best_segmentation.pt). Pulls in torch.
+ultralytics>=8.3
