@@ -179,3 +179,9 @@ required.
 flyover pipeline they were developed in. Only the configuration and the entry
 point are new, so the reconstruction behaves identically to that pipeline up to
 the point where it stops.
+
+---
+
+## License
+
+MIT. See [LICENSE](LICENSE).
