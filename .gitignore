@@ -1,10 +1,12 @@
 __pycache__/
 *.pyc
 
-# Generated results are not tracked -- except the one example pair the README
-# shows, which has to be in the repo for GitHub to render it.
+# Generated results are not tracked -- except the example images the README
+# shows, which have to be in the repo for GitHub to render them.
 output/*
 !output/example_run/
 output/example_run/*
+!output/example_run/input_frame.jpg
+!output/example_run/trajectory.png
 !output/example_run/walls_before.png
 !output/example_run/walls_rose.png

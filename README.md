@@ -3,14 +3,43 @@
 2D wall reconstruction from a 3D flyover mp4 video. Give it a video and its IMU log, get
 back the building's wall structure as a denoised occupancy map.
 
-| Raw accumulation | After the ROSE spectral filter |
-|:---:|:---:|
-| <img src="output/example_run/walls_before.png" width="380"> | <img src="output/example_run/walls_rose.png" width="380"> |
-| 15368 occupied cells | **7229 cells — 53% removed as non-structural** |
+### The problem
 
-A real run, straight from `small_world_flyover.mp4`. Same grid, same pixels,
-cropped to the walls so the difference is visible. Everything removed on the
-right is clutter, reflection and pose-drift smear; the walls are untouched.
+This is what the drone sees — one frame of 4801. Walls, floor, a fire
+extinguisher, a cardboard box, all flattened into a top-down view with no idea
+where in the building it is:
+
+<p align="center">
+<img src="output/example_run/input_frame.jpg" width="560">
+</p>
+
+There is no GPS and no map. The floor plan has to come out of the footage
+itself.
+
+### What comes out
+
+<table>
+<tr>
+<td align="center"><b>1. Where the camera went</b><br><sub>stage 1 — visual odometry</sub></td>
+<td align="center"><b>2. Walls stamped into a grid</b><br><sub>stage 2 — accumulation</sub></td>
+<td align="center"><b>3. Structure kept, clutter cut</b><br><sub>stage 3 — ROSE filter</sub></td>
+</tr>
+<tr>
+<td><img src="output/example_run/trajectory.png" width="300"></td>
+<td><img src="output/example_run/walls_before.png" width="240"></td>
+<td><img src="output/example_run/walls_rose.png" width="240"></td>
+</tr>
+<tr>
+<td align="center"><sub>recovered from the video, scaled by the marker</sub></td>
+<td align="center"><sub>15368 occupied cells</sub></td>
+<td align="center"><sub><b>7229 cells — 53% removed</b></sub></td>
+</tr>
+</table>
+
+A real run, straight from `small_world_flyover.mp4`. The two grids are the same
+pixels cropped to one shared box, so the difference between them is the filter
+and nothing else. Everything gone on the right is clutter, reflection and
+pose-drift smear; the walls are untouched.
 
 ```
 video + IMU csv
