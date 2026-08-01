@@ -78,8 +78,6 @@ RAY_STEP_PX  = 3          # radial march step
 
 MAP_RES_M    = 0.05
 WORK_PX      = 1200
-OUT_PX       = 600
-WALL_THICK_PX = 4
 
 # --- Snap-to-wall (loop-closure duplicates) ---
 SNAP_ON      = True
@@ -95,11 +93,6 @@ MIN_OVERLAP   = 60        # aligned overlap cells needed to accept an offset
 STEP_CAP      = 6         # max offset change between consecutive submaps
 SNAP_REFRESH = 20         # rebuild nearest-wall lookup every N frames
 
-# --- Post-processing (the ONLY noise filter) ---
-POST_CLOSE     = 3        # connect dotted hits into lines
-MIN_SEG_LEN_PX = 6        # keep standalone segments >= 0.30 m long ...
-MAX_SEG_WIDTH_PX = 8      # ... and <= 0.40 m wide (long-and-thin test)
-MIN_CC_CELLS   = 4        # drop components smaller than this outright
 
 # --- Contradiction filter (non-temporal noise removal) ---
 # A component is noise if the free layer CONTRADICTS it: rays from other
@@ -107,7 +100,6 @@ MIN_CC_CELLS   = 4        # drop components smaller than this outright
 # stamped in a single frame — are never floor-crossed (rays hit them or are
 # occluded; the carve margin keeps near-miss floor votes off the band).
 # Intensity/hit-counts are never used, so once-seen walls survive.
-CONTRA_FRAC    = 0.6      # component dropped if > this fraction of its
                           # cells were also carved as observed floor
                           # (1-2 px flecks never generate hits at all)
 
@@ -118,7 +110,6 @@ CONTRA_FRAC    = 0.6      # component dropped if > this fraction of its
 # only if it belongs to a straight run >= RECT_LEN cells along the
 # horizontal OR vertical axis. Long walls trivially qualify; furniture-
 # shaped bumps (short both ways) are shaved flush. Prune-only: never adds.
-RECT_PRUNE     = True     # set False if it shaves nothing useful for you
 RECT_LEN       = 9        # 0.45 m minimum straight run to keep a cell
 
 # --- Trajectory-gated gap extension (occlusion bridging) ---
@@ -138,12 +129,7 @@ RECT_LEN       = 9        # 0.45 m minimum straight run to keep a cell
 FOOT_CELLS     = 5     # half-width in cells (5 = 0.55 m square)
 FOOT_MAX       = 20    # trackbar range
 
-GAP_EXTEND     = True
 MAX_EXTEND_CELLS = 50     # bridge at most 2.5 m
-TRAJ_CLEAR_CELLS = 4      # drone corridor half-width (0.20 m)
-USE_LINE_FIT   = True     # Hough + dominant-axis snap at the end
-SNAP_DEG       = 12
-BRIDGE_PX      = 15
 
 SHOW_LIVE    = True
 VIS_CAM_W    = 860
@@ -298,201 +284,8 @@ def accumulate(wall, seen_free, mask, pose, w, h, snap=None):
 
 
 # ============================= POST-PROCESSING ===============================
-def clean_walls(wall, seen_free=None, traj_rc=None):
-    """Noise filters: (1) contradiction — components majority-crossed as
-    floor by other rays are noise, independent of how often they were
-    stamped; (2) structural continuity."""
-    raw = (wall.astype(np.uint8)) * 255
-    cv2.imwrite(os.path.join(config.TUNING_DIR, "1_raw_stamps.png"), raw)
-
-    if seen_free is not None:
-        n, labels = cv2.connectedComponents(raw)
-        killed = np.zeros_like(wall)
-        n_kill = 0
-        for i in range(1, n):
-            comp = labels == i
-            frac = float(seen_free[comp].mean())
-            if frac > CONTRA_FRAC:
-                killed |= comp
-                n_kill += 1
-        if n_kill:
-            wall = wall & ~killed
-            raw = (wall.astype(np.uint8)) * 255
-            print(f"[contra] dropped {n_kill} floor-contradicted "
-                  f"component(s), {int(killed.sum())} cells")
-            cv2.imwrite(os.path.join(config.TUNING_DIR, "1b_contradiction.png"),
-                        (killed.astype(np.uint8)) * 255)
-
-    occ = cv2.morphologyEx(raw, cv2.MORPH_CLOSE,
-                           np.ones((POST_CLOSE, POST_CLOSE), np.uint8))
-
-    n, labels, stats, _ = cv2.connectedComponentsWithStats(occ)
-    kept = np.zeros_like(occ)
-    n_line = n_small = n_blob = 0
-    line_like = []
-    for i in range(1, n):
-        area = stats[i, cv2.CC_STAT_AREA]
-        if area < MIN_CC_CELLS:
-            n_small += 1
-            continue
-        comp = labels == i
-        pts = np.argwhere(comp)[:, ::-1].astype(np.float32)
-        (_, _), (W, H), _ = cv2.minAreaRect(pts)
-        length, width = max(W, H), min(W, H)
-        if length >= MIN_SEG_LEN_PX and width <= MAX_SEG_WIDTH_PX:
-            kept[comp] = 255
-            line_like.append(i)
-            n_line += 1
-        else:
-            n_blob += 1
-    # second pass: readmit rejected blobs that TOUCH kept walls (junctions,
-    # corners, drift-thickened sections)
-    kept_dil = cv2.dilate(kept, np.ones((5, 5), np.uint8))
-    n_join = 0
-    for i in range(1, n):
-        if i in line_like:
-            continue
-        if stats[i, cv2.CC_STAT_AREA] < MIN_CC_CELLS:
-            continue
-        comp = labels == i
-        if (kept_dil[comp] > 0).any():
-            kept[comp] = 255
-            n_join += 1
-    print(f"[clean] kept {n_line} line-like + {n_join} joined; "
-          f"dropped {n_small} tiny + {n_blob - n_join} blobs")
-    cv2.imwrite(os.path.join(config.TUNING_DIR, "2_structural.png"), kept)
-
-    if RECT_PRUNE:
-        # dominant orientation from the wall points themselves
-        pts = np.argwhere(kept > 0)[:, ::-1].astype(np.float32)
-        if len(pts) > 50:
-            angle = cv2.minAreaRect(pts)[2]
-            if angle > 45:
-                angle -= 90
-            center = (WORK_PX / 2.0, WORK_PX / 2.0)
-            R = cv2.getRotationMatrix2D(center, angle, 1.0)
-            Rinv = cv2.getRotationMatrix2D(center, -angle, 1.0)
-            rot = cv2.warpAffine(kept, R, (WORK_PX, WORK_PX),
-                                 flags=cv2.INTER_NEAREST)
-            kh = cv2.getStructuringElement(cv2.MORPH_RECT, (RECT_LEN, 1))
-            kv = cv2.getStructuringElement(cv2.MORPH_RECT, (1, RECT_LEN))
-            runs = cv2.bitwise_or(
-                cv2.morphologyEx(rot, cv2.MORPH_OPEN, kh),
-                cv2.morphologyEx(rot, cv2.MORPH_OPEN, kv))
-            pruned = cv2.warpAffine(runs, Rinv, (WORK_PX, WORK_PX),
-                                    flags=cv2.INTER_NEAREST)
-            pruned = cv2.bitwise_and(kept, pruned)   # prune-only guarantee
-            shaved = int((kept > 0).sum() - (pruned > 0).sum())
-            print(f"[rect] dominant angle {angle:.1f} deg; shaved "
-                  f"{shaved} bump cells (runs < {RECT_LEN} cells)")
-            cv2.imwrite(os.path.join(config.TUNING_DIR, "2b_rect_pruned.png"),
-                        pruned)
-            kept = pruned
-
-    if not USE_LINE_FIT:
-        return cv2.dilate(kept, np.ones((WALL_THICK_PX - 1,) * 2, np.uint8))
-
-    try:
-        skel = cv2.ximgproc.thinning(kept)
-    except AttributeError:
-        print("[clean] cv2.ximgproc missing; Hough on raw structural map")
-        skel = kept
-
-    lines = cv2.HoughLinesP(skel, 1, np.pi / 180, threshold=20,
-                            minLineLength=10, maxLineGap=BRIDGE_PX)
-    if lines is None:
-        print("[clean] no Hough lines; submitting structural map")
-        return cv2.dilate(kept, np.ones((WALL_THICK_PX - 1,) * 2, np.uint8))
-
-    angles = np.array([np.arctan2(l[0][3] - l[0][1], l[0][2] - l[0][0]) % np.pi
-                       for l in lines])
-    dom = np.arctan2(np.sin(2 * angles).mean(),
-                     np.cos(2 * angles).mean()) / 2.0
-    canvas = np.zeros_like(kept)
-    snapped_segments = []
-    for l in lines[:, 0]:
-        x1, y1, x2, y2 = map(float, l)
-        ang = np.arctan2(y2 - y1, x2 - x1) % np.pi
-        for t in (dom % np.pi, (dom + np.pi / 2) % np.pi):
-            d = min(abs(ang - t), np.pi - abs(ang - t))
-            if d < np.deg2rad(SNAP_DEG):
-                cxm, cym = (x1 + x2) / 2, (y1 + y2) / 2
-                half = np.hypot(x2 - x1, y2 - y1) / 2 + BRIDGE_PX / 2
-                dx, dy = np.cos(t), np.sin(t)
-                x1, y1 = cxm - dx * half, cym - dy * half
-                x2, y2 = cxm + dx * half, cym + dy * half
-                break
-        cv2.line(canvas, (int(round(x1)), int(round(y1))),
-                 (int(round(x2)), int(round(y2))), 255, WALL_THICK_PX)
-        snapped_segments.append((x1, y1, x2, y2))
-    cv2.imwrite(os.path.join(config.TUNING_DIR, "3_line_fitted.png"), canvas)
-
-    # --- TRAJECTORY-GATED GAP EXTENSION ---
-    if GAP_EXTEND and traj_rc is not None and len(traj_rc) > 1:
-        corridor = np.zeros_like(canvas)
-        for k in range(1, len(traj_rc)):
-            cv2.line(corridor, (traj_rc[k - 1][1], traj_rc[k - 1][0]),
-                     (traj_rc[k][1], traj_rc[k][0]), 255,
-                     2 * TRAJ_CLEAR_CELLS + 1)
-        n_filled = n_door = 0
-        for x1, y1, x2, y2 in snapped_segments:
-            for (ex, ey, ox, oy) in ((x2, y2, x1, y1), (x1, y1, x2, y2)):
-                L = np.hypot(ex - ox, ey - oy)
-                if L < 1:
-                    continue
-                dx, dy = (ex - ox) / L, (ey - oy) / L
-                hit = None
-                blocked = False
-                for step in range(2, MAX_EXTEND_CELLS + 1):
-                    px = int(round(ex + dx * step))
-                    py = int(round(ey + dy * step))
-                    if not (0 <= px < WORK_PX and 0 <= py < WORK_PX):
-                        break
-                    if corridor[py, px] > 0:
-                        blocked = True     # doorway: the drone flew here
-                        break
-                    # met another wall? (small perpendicular tolerance)
-                    y0, y1_ = max(py - 1, 0), min(py + 2, WORK_PX)
-                    x0, x1_ = max(px - 1, 0), min(px + 2, WORK_PX)
-                    if canvas[y0:y1_, x0:x1_].any() and step > 3:
-                        hit = step
-                        break
-                if hit is not None and not blocked:
-                    cv2.line(canvas, (int(round(ex)), int(round(ey))),
-                             (int(round(ex + dx * hit)),
-                              int(round(ey + dy * hit))),
-                             255, WALL_THICK_PX)
-                    n_filled += 1
-                elif blocked:
-                    n_door += 1
-        print(f"[gap] extensions filled: {n_filled}, aborted at drone "
-              f"corridor (protected doorways): {n_door}")
-        cv2.imwrite(os.path.join(config.TUNING_DIR, "3b_gap_extended.png"), canvas)
-        cv2.imwrite(os.path.join(config.TUNING_DIR, "3c_drone_corridor.png"),
-                    corridor)
-    return canvas
 
 
-def finalize(walls):
-    canvas = np.full((OUT_PX, OUT_PX), 255, dtype=np.uint8)
-    ys, xs = np.nonzero(walls)
-    if ys.size == 0:
-        print("[final] WARNING: blank map.")
-        return canvas
-    r0, r1 = ys.min(), ys.max() + 1
-    c0, c1 = xs.min(), xs.max() + 1
-    crop = walls[r0:r1, c0:c1]
-    ch, cw = crop.shape
-    print(f"[final] wall content: {cw * MAP_RES_M:.1f} x "
-          f"{ch * MAP_RES_M:.1f} m")
-    if ch > OUT_PX or cw > OUT_PX:
-        print("[final] WARNING: content exceeds 30x30 m — check odometry "
-              "scale. Cropping; fix before submit.")
-        crop = crop[:min(ch, OUT_PX), :min(cw, OUT_PX)]
-        ch, cw = crop.shape
-    ro, co = (OUT_PX - ch) // 2, (OUT_PX - cw) // 2
-    canvas[ro:ro + ch, co:co + cw][crop > 0] = 0
-    return canvas
 
 
 # ============================= VISUALIZATION =================================
@@ -700,12 +493,12 @@ class WallMapper:
         np.save(config.WALL_NPY, self.global_wall)
         np.save(os.path.join(config.MAPPING_DIR, "seen_free.npy"),
                 self.global_free)
-        walls = clean_walls(self.global_wall, seen_free=self.global_free,
-                            traj_rc=self.traj_rc)
-        canvas = finalize(walls)
-        cv2.imwrite(os.path.join(config.TUNING_DIR, "r0_footprint_estimate.png"),
-                    cv2.cvtColor(canvas, cv2.COLOR_GRAY2BGR))
-        print("Saved footprint estimate to tuning/r0_footprint_estimate.png")
+        # The inherited stage-2 tail vectorised this grid into a single-line
+        # footprint and wrote r0_footprint_estimate.png. Removed: this project
+        # stops at the spectral filter, nothing read that image, and on a map
+        # with no straight Hough lines it printed "[final] WARNING: blank map",
+        # which read like a failed run when the run was fine. wall_raw.npy is
+        # already saved above and is unaffected.
 
 
 def run_mapping():
