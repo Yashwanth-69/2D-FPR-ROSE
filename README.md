@@ -126,7 +126,7 @@ pixel for pixel and can be diffed directly.
 
 ## How stage 3 works
 
-**The method is ROSE, published by Kucner, Luperto et al.** — not ours. The idea
+**The method is ROSE, published by Kucner, Luperto et al.** The idea
 of using the frequency spectrum of an occupancy map to separate structure from
 clutter is theirs, and this project would not exist without it. See
 [Credits](#credits) for the papers and the reference implementation.
