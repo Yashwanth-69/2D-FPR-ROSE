@@ -169,6 +169,92 @@ upstream in stage 1.
 
 ---
 
+## The segmentation model
+
+`models/best_segmentation.pt` is **our** wall segmenter, trained for the scenes
+this project was developed on. It is a starting point, not a requirement — the
+pipeline treats it as a black box, and swapping in one trained for your own
+environment is the single highest-value change you can make.
+
+### How ours was trained
+
+Read straight out of the checkpoint, so it matches the file in this repo:
+
+| | |
+|---|---|
+| Base model | `yolov8n-seg.pt` (pretrained, fine-tuned) |
+| Task | `segment`, single class — `{0: 'wall'}` |
+| Framework | Ultralytics 8.4.78 |
+| Epochs | 200, `patience=30` |
+| Image size | 640 |
+| Batch | 8 |
+| Optimiser | AdamW, `lr0=0.001`, `lrf=0.01`, `weight_decay=0.0005` |
+| Warmup | 3 epochs |
+| Seed | 0, `deterministic=True` |
+| Trained | 2026-07-11 |
+
+Augmentation was kept deliberately mild, because the input is nadir-ish aerial
+footage where scale and orientation are roughly fixed:
+
+```
+hsv_h 0.015   hsv_s 0.5   hsv_v 0.5      # lighting only
+degrees 5     translate 0.05  scale 0.2  # small geometric jitter
+fliplr 0.5    flipud 0.0                 # horizontal only
+mosaic 0.0    mixup 0.0    cutmix 0.0    # OFF -- see below
+erasing 0.4
+```
+
+Mosaic and mixup are off on purpose. They stitch several images into one, which
+invents wall junctions that never existed and teaches the model corner geometry
+the building does not have. For a detector that is fine; for a segmenter whose
+output is integrated into a metric occupancy grid, those hallucinated junctions
+survive into the map and the spectral filter happily preserves them, because a
+fake straight wall looks exactly like a real one in the frequency domain.
+`flipud` is off for the same class of reason: overhead footage has a consistent
+lighting direction, and flipping vertically makes shadows fall upward.
+
+Reproducing it, given a dataset in YOLO segmentation format:
+
+```bash
+yolo segment train \
+    model=yolov8n-seg.pt data=your_dataset/data.yaml \
+    epochs=200 patience=30 imgsz=640 batch=8 \
+    optimizer=AdamW lr0=0.001 seed=0 \
+    mosaic=0.0 mixup=0.0 flipud=0.0 degrees=5 scale=0.2
+```
+
+### Using your own model
+
+Point the pipeline at it — no code change needed:
+
+```bash
+python recon.py --video flyover.mp4 --model path/to/your_walls.pt
+```
+
+It has to satisfy exactly three things:
+
+1. **Ultralytics segmentation model.** Called as `model(frame)` and read through
+   `results.masks` and `results.boxes`. Any YOLO `-seg` variant works; `n`, `s`
+   and `m` are all fine, and a bigger one is worth trying if you have the GPU.
+2. **Class 0 is wall.** The code keeps class 0 and ignores the rest, so a
+   multi-class model works as long as wall sits at index 0.
+3. **It runs at your source resolution.** Frames are passed through unresized.
+
+The confidence floor is deliberately low — `SEG_CONF = 0.20` in `mapping.py`,
+`WALL_SUSPICION_CONF = 0.20` in `odometry.py`. Stage 3 is what removes false
+positives, so the segmenter is allowed to over-call walls; missed walls cannot
+be recovered later, but spurious ones are cut by the spectral filter. Bias
+your training and your threshold toward recall.
+
+This is where the biggest wins are. The reconstruction quality is bounded by two
+things — how well the segmenter finds walls in *your* footage, and how well the
+trajectory holds up in stage 1. If your scenes look nothing like ours (different
+altitude, different roof materials, outdoor rather than indoor), retraining on a
+few hundred of your own annotated frames will do far more than any parameter in
+`config.py`.
+
+---
+
 ## Notes
 
 Stage 1 can also detect people on the same video pass. That is irrelevant here,
@@ -184,4 +270,20 @@ the point where it stops.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+The **code** in this repository is MIT. See [LICENSE](LICENSE).
+
+Two bundled dependencies are **not** MIT, and that is worth understanding before
+you build on this commercially:
+
+- **Ultralytics YOLO** is AGPL-3.0. The pipeline imports it, so a distributed
+  application built on this inherits AGPL obligations unless you hold an
+  Ultralytics commercial licence.
+- **`models/best_segmentation.pt`** is fine-tuned from `yolov8n-seg.pt`, and its
+  own checkpoint records `license: AGPL-3.0`. The weights carry that licence
+  regardless of what the code around them says.
+
+So: MIT covers the reconstruction logic, which is the original work here. It does
+not and cannot relicense Ultralytics or a model derived from their weights. If
+you need a permissive stack end to end, retrain the segmenter from a
+non-AGPL base and swap it in with `--model` — the pipeline does not care which
+segmenter it is given, which is exactly why that option exists.
