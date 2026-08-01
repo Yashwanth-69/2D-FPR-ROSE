@@ -1,4 +1,4 @@
-# 2D FLOOR PLAN RECONSTRUCTION USING ROSE WALLS AND IMU DATA
+# 2D FLOOR PLAN RECONSTRUCTION USING ROSE WALLS AND VISUAL-INERTIAL ODOMETRY
 
 2D wall reconstruction from a 3D flyover mp4 video. Give it a video and its IMU log, get
 back the building's wall structure as a denoised occupancy map.
