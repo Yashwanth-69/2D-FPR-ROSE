@@ -1,5 +1,11 @@
 """STAGE 3 -- the ROSE spectral filter. The pipeline stops here.
 
+Implements ROSE (Kucner, Luperto et al., arXiv:2004.08794 and
+arXiv:2203.03519). The method is theirs; this is our own implementation of
+it, written from the papers and adapted for aerial flyover footage. Cite
+their work, not this file. Reference implementation, GPL-3.0:
+https://github.com/aislabunimi/ROSE2
+
 Walls in a built environment are long, straight and nearly all parallel to one
 of a few directions, so in the 2D Fourier transform of the occupancy map they
 concentrate into a few angular ridges. Clutter, reflections and pose-drift smear

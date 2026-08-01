@@ -126,6 +126,16 @@ pixel for pixel and can be diffed directly.
 
 ## How stage 3 works
 
+**The method is ROSE, published by Kucner, Luperto et al.** — not ours. The idea
+of using the frequency spectrum of an occupancy map to separate structure from
+clutter is theirs, and this project would not exist without it. See
+[Credits](#credits) for the papers and the reference implementation.
+
+What is ours is `rose_intensity()`, our own implementation of that idea written
+from the papers, tuned for aerial flyover footage rather than the ground-robot
+SLAM maps ROSE was designed around, and stopping at the filtered grid instead of
+continuing to room segmentation.
+
 Walls in a built environment are long, straight, and nearly all parallel to one
 of a small number of directions. In the 2D Fourier transform of the occupancy
 map they therefore concentrate into a few angular ridges. Clutter, reflections
@@ -268,22 +278,49 @@ the point where it stops.
 
 ---
 
+## Credits
+
+This project implements **ROSE**, and the method belongs to its authors:
+
+> T. P. Kucner, M. Magnusson, et al.
+> *Robust Frequency-Based Structure Extraction.*
+> [arXiv:2004.08794](https://arxiv.org/abs/2004.08794)
+
+> M. Luperto, T. P. Kucner, et al.
+> *Robust Structure Identification and Room Segmentation of Cluttered Indoor
+> Environments from Occupancy Grid Maps.*
+> [arXiv:2203.03519](https://arxiv.org/abs/2203.03519)
+
+Reference implementation: [aislabunimi/ROSE2](https://github.com/aislabunimi/ROSE2)
+(GPL-3.0). **If you use this project in academic work, cite their papers, not
+this repository** — the contribution is theirs.
+
+`rose_intensity()` here is our own implementation, written from those papers and
+adapted for aerial flyover footage. It covers the ROSE spectral filter only; the
+room segmentation and floor-plan vectorisation that ROSE2 adds are not
+reproduced here.
+
+---
+
 ## License
 
-The **code** in this repository is MIT. See [LICENSE](LICENSE).
+**GPL-3.0.** See [LICENSE](LICENSE).
 
-Two bundled dependencies are **not** MIT, and that is worth understanding before
-you build on this commercially:
+Copyleft: anything you build on this must also be GPL-3.0. You can use, modify
+and redistribute it freely, including commercially, but you cannot fold it into
+a closed-source product.
 
-- **Ultralytics YOLO** is AGPL-3.0. The pipeline imports it, so a distributed
-  application built on this inherits AGPL obligations unless you hold an
-  Ultralytics commercial licence.
+This is the honest licence for the stack rather than the most convenient one:
+
+- **ROSE**, the method this implements, is published under GPL-3.0 in its
+  reference implementation.
+- **Ultralytics YOLO** is AGPL-3.0, and the pipeline imports it.
 - **`models/best_segmentation.pt`** is fine-tuned from `yolov8n-seg.pt`, and its
-  own checkpoint records `license: AGPL-3.0`. The weights carry that licence
-  regardless of what the code around them says.
+  checkpoint records `license: AGPL-3.0`. Weights carry that regardless of the
+  licence on the code around them.
 
-So: MIT covers the reconstruction logic, which is the original work here. It does
-not and cannot relicense Ultralytics or a model derived from their weights. If
-you need a permissive stack end to end, retrain the segmenter from a
+A permissive licence on this repository would have implied freedoms the
+dependencies do not grant. If you need one, retrain the segmenter from a
 non-AGPL base and swap it in with `--model` — the pipeline does not care which
-segmenter it is given, which is exactly why that option exists.
+segmenter it is handed, which is exactly why that option exists. The ROSE
+lineage still applies to the filter itself.
