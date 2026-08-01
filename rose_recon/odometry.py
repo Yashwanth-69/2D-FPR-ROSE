@@ -43,8 +43,6 @@ MAX_DEVIATION_MM = 40.0
 # floor features; the median gets captured by them in wall-heavy frames,
 # biasing translation. Spawn features on floor only; evict wall-wanderers.
 USE_FLOOR_MASK   = True
-WALL_SUSPICION_CONF = 0.20   # loose: anything suspected wall is banned
-WALL_DILATE_PX   = 10        # safety margin around wall masks (px)
 MASK_EVERY_N     = 2         # recompute floor mask every N frames
 MIN_SPAWN_FLOOR  = 25        # fewer masked corners than this -> spawn unmasked
 MIN_KEEP_POINTS  = 15        # eviction never drops the pool below this

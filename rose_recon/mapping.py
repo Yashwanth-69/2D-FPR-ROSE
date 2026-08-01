@@ -72,9 +72,7 @@ alignment at the right granularity.
 # to reproduce old behavior.
 SEG_Z0           = 0.0
 FOCAL_LENGTH = 569.84
-SEG_CONF     = 0.20       # wall mask confidence
 
-FRAME_STRIDE = 2
 N_RAYS       = 900        # angular resolution (0.4 deg)
 RAY_STEP_PX  = 3          # radial march step
 
@@ -111,7 +109,6 @@ MIN_CC_CELLS   = 4        # drop components smaller than this outright
 # Intensity/hit-counts are never used, so once-seen walls survive.
 CONTRA_FRAC    = 0.6      # component dropped if > this fraction of its
                           # cells were also carved as observed floor
-MASK_OPEN      = 3        # despeckle the segmentation mask before rays
                           # (1-2 px flecks never generate hits at all)
 
 # --- Rectilinear pruning (furniture-dent removal) ---

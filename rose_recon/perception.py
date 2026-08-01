@@ -15,6 +15,21 @@ import cv2
 from . import config
 from .config import *  # noqa: F401,F403
 
+# Resolved once by pick_device() and cached here. It lives in this module rather
+# than in config because pick_device() ASSIGNS it: a value that gets mutated
+# cannot be re-exported through `from .config import *`, since every importer
+# would bind its own copy and never see the update.
+DEVICE = None
+
+# Mask tuning. These live here with the functions that use them; they were left
+# behind in the stage modules when these helpers moved, which is why the split
+# broke. Thresholds are deliberately loose -- the spectral filter in stage 3 is
+# what removes false positives, so the segmenter is allowed to over-call walls.
+WALL_SUSPICION_CONF = 0.20   # loose: anything suspected wall is banned
+WALL_DILATE_PX      = 10     # safety margin around wall masks (px)
+SEG_CONF            = 0.20   # wall mask confidence
+MASK_OPEN           = 3      # despeckle the segmentation mask before rays
+
 def pick_device():
     """cuda if torch sees a GPU, else cpu. Called once, result cached."""
     global DEVICE

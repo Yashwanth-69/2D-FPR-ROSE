@@ -23,7 +23,7 @@ __all__ = [
     "N_DIRECTIONS", "LOW_FREQ_KEEP", "WEDGE_DEG", "KEEP_FRACTION",
     "INT_WIN", "INT_Q",
     # runtime behaviour
-    "SAVE_FRAMES", "SHOW_ODOM", "SHOW_PLOTS", "FUSE_STAGES",
+    "SAVE_FRAMES", "SHOW_ODOM", "SHOW_PLOTS", "FUSE_STAGES", "FRAME_STRIDE",
     # inherited casualty-detection settings (disabled, see DETECT_VICTIMS)
     "DETECT_VICTIMS", "VICTIM_CLASSES", "VICTIM_CONF", "VICTIM_MERGE_RADIUS_M",
     "CLUSTER_RADIUS_M", "MIN_DETECTION_HITS", "LAUNCH_EXCLUDE_M",
@@ -53,6 +53,7 @@ SAVE_FRAMES = False      # write captured_frames/*.jpg
 SHOW_ODOM = True         # live stage-1 trajectory windows
 SHOW_PLOTS = False       # stage-1 matplotlib windows (the figure is saved anyway)
 FUSE_STAGES = True       # odometry and wall grid share ONE video pass
+FRAME_STRIDE = 2         # process every Nth tracked frame (both stages)
 
 # ---- casualty detection: OFF -------------------------------------------------
 # The stage-1 code this project inherits can also detect people on the same video
