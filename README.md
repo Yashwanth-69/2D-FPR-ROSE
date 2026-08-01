@@ -1,6 +1,6 @@
-# 2d_recon_from_3d
+# 2D FLOOR PLAN RECONSTRUCTION USING ROSE WALLS AND IMU DATA
 
-2D wall reconstruction from a 3D flyover. Give it a video and its IMU log, get
+2D wall reconstruction from a 3D flyover mp4 video. Give it a video and its IMU log, get
 back the building's wall structure as a denoised occupancy map.
 
 ```
