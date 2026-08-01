@@ -3,7 +3,7 @@
 Implements ROSE (Kucner, Luperto et al., arXiv:2004.08794 and
 arXiv:2203.03519). The method is theirs; this is our own implementation of
 it, written from the papers and adapted for aerial flyover footage. Cite
-their work, not this file. Reference implementation, GPL-3.0:
+their work, not this file. Reference implementation:
 https://github.com/aislabunimi/ROSE2
 
 Walls in a built environment are long, straight and nearly all parallel to one

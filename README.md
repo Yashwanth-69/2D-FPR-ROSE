@@ -291,36 +291,11 @@ This project implements **ROSE**, and the method belongs to its authors:
 > Environments from Occupancy Grid Maps.*
 > [arXiv:2203.03519](https://arxiv.org/abs/2203.03519)
 
-Reference implementation: [aislabunimi/ROSE2](https://github.com/aislabunimi/ROSE2)
-(GPL-3.0). **If you use this project in academic work, cite their papers, not
-this repository** — the contribution is theirs.
+Reference implementation: [aislabunimi/ROSE2](https://github.com/aislabunimi/ROSE2).
+**If you use this project in academic work, cite their papers, not this
+repository** — the contribution is theirs.
 
 `rose_intensity()` here is our own implementation, written from those papers and
 adapted for aerial flyover footage. It covers the ROSE spectral filter only; the
 room segmentation and floor-plan vectorisation that ROSE2 adds are not
 reproduced here.
-
----
-
-## License
-
-**GPL-3.0.** See [LICENSE](LICENSE).
-
-Copyleft: anything you build on this must also be GPL-3.0. You can use, modify
-and redistribute it freely, including commercially, but you cannot fold it into
-a closed-source product.
-
-This is the honest licence for the stack rather than the most convenient one:
-
-- **ROSE**, the method this implements, is published under GPL-3.0 in its
-  reference implementation.
-- **Ultralytics YOLO** is AGPL-3.0, and the pipeline imports it.
-- **`models/best_segmentation.pt`** is fine-tuned from `yolov8n-seg.pt`, and its
-  checkpoint records `license: AGPL-3.0`. Weights carry that regardless of the
-  licence on the code around them.
-
-A permissive licence on this repository would have implied freedoms the
-dependencies do not grant. If you need one, retrain the segmenter from a
-non-AGPL base and swap it in with `--model` — the pipeline does not care which
-segmenter it is handed, which is exactly why that option exists. The ROSE
-lineage still applies to the filter itself.
